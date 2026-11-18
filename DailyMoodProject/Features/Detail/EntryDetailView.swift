@@ -52,7 +52,7 @@ struct EntryDetailView: View {
                     Button("수정", systemImage: "pencil") {
                         router.sheet = .editor(.edit(day))       // DTL-05
                     }
-                    .tint(.accentColor)
+                    .tint(.indigo)
                     deleteButton
                 }
             }

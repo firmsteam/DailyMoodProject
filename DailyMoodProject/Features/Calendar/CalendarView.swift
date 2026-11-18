@@ -72,7 +72,7 @@ struct CalendarView: View {
         VStack(alignment: .leading, spacing: 0) {
             Text(verbatim: "\(monthStart.year)년")      // 연도에 쉼표(2,026)가 붙지 않게 한다.
                 .font(.headline)
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(.tint)
             Text("\(monthStart.month)월")
                 .font(.largeTitle.bold())
         }
@@ -181,7 +181,7 @@ struct CalendarView: View {
                 .foregroundStyle(.secondary)
             if day == today {
                 Text("오늘")
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(.tint)
             }
         }
         .font(.subheadline.weight(.semibold))
@@ -283,7 +283,7 @@ private struct DayCell: View {
                 .foregroundStyle(numberColor)
                 .frame(width: circleSize, height: circleSize)
                 .background {
-                    if isToday { Circle().fill(Color.accentColor) }
+                    if isToday { Circle().fill(.tint) }
                 }
             marker.frame(height: markerHeight)       // 이모지가 없는 칸도 같은 높이를 써서 숫자 줄을 맞춘다.
         }
@@ -292,7 +292,7 @@ private struct DayCell: View {
         .background {
             if isSelected && !isToday {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color.accentColor.opacity(0.12))
+                    .fill(.tint.opacity(0.12))
             }
         }
         .contentShape(Rectangle())

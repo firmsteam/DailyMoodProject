@@ -27,6 +27,7 @@ struct RootView: View {
                 tabStack { MonthView() }
             }
         }
+        .tint(.indigo)      // 앱 강조색은 디자인 시스템의 인디고
         .sheet(item: $router.sheet) { sheet in
             switch sheet {
             case .editor(let mode):
