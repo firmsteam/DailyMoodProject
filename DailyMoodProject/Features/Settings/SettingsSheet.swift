@@ -42,6 +42,7 @@ struct SettingsSheet: View {
             }
         }
         .tint(.indigo)
+        .appAppearance()            // 시트 안에서 값을 바꿔도 이 시트가 바로 따라가게 한다
     }
 
     // MARK: - 섹션

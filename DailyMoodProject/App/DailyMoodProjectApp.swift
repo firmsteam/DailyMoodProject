@@ -23,6 +23,7 @@ struct DailyMoodProjectApp: App {
         WindowGroup {
             RootView()
                 .environment(router)
+                .appAppearance()
         }
         .modelContainer(container)
     }
