@@ -26,13 +26,22 @@ struct EmotionPickerGrid: View {
                 Button {
                     selection = emotion
                 } label: {
+                    let isSelected = selection == emotion
                     VStack(spacing: 4) {
                         EmojiText(emotion.emoji, size: 28)
-                        Text(emotion.name).font(.caption2)
+                        Text(emotion.name)
+                            .font(.caption2)
+                            .foregroundStyle(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
                     }
                     .frame(maxWidth: .infinity, minHeight: 62)         // 높이는 minHeight
+                    .background {
+                        if isSelected {
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(.tint.opacity(0.12))
+                        }
+                    }
                     .overlay {
-                        if selection == emotion {
+                        if isSelected {
                             RoundedRectangle(cornerRadius: 18, style: .continuous)
                                 .stroke(.tint, lineWidth: 2)
                         }
@@ -40,7 +49,8 @@ struct EmotionPickerGrid: View {
                     .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(emotion.name)                       // 이모지 대신 이름을 읽는다
+                // 이모지 대신 이름을 읽는다
+                .accessibilityLabel(emotion.name)
                 .accessibilityAddTraits(selection == emotion ? .isSelected : [])
             }
         }
