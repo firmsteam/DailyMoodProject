@@ -9,6 +9,8 @@ import SwiftData
 struct SettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @Environment(\.openURL) private var openURL
+    @Environment(\.reminderScheduler) private var reminderScheduler
 
     @AppStorage(SettingsKey.themeMode) private var theme: AppTheme = .system
     @AppStorage(SettingsKey.reminderEnabled) private var reminderEnabled = false
@@ -16,6 +18,7 @@ struct SettingsSheet: View {
 
     @State private var showDeleteAll = false
     @State private var deleteError = false
+    @State private var showNotificationDenied = false
 
     /// 영역 사이 간격. 삭제 영역은 다른 영역보다 더 띄워서 실수로 누르기 어렵게 한다.
     private let sectionSpacing: CGFloat = 24
@@ -39,6 +42,12 @@ struct SettingsSheet: View {
             }
             .alert("삭제하지 못했어요", isPresented: $deleteError) {
                 Button("확인", role: .cancel) { }
+            }
+            .alert("알림을 켤 수 없어요", isPresented: $showNotificationDenied) {
+                Button("설정 열기") { openAppSettings() }
+                Button("취소", role: .cancel) { }
+            } message: {
+                Text("설정 앱에서 알림을 허용해 주세요.")
             }
         }
         .tint(.indigo)
@@ -67,7 +76,7 @@ struct SettingsSheet: View {
     /// 매일 기록 알림. 시간은 알림을 켰을 때만 보인다. (SET-03, SET-04)
     private var reminderSection: some View {
         Section {
-            Toggle(isOn: $reminderEnabled) {
+            Toggle(isOn: reminderToggle) {
                 SettingsLabel("매일 기록 알림", systemImage: "bell.fill", color: .red)
             }
             if reminderEnabled {
@@ -140,8 +149,37 @@ struct SettingsSheet: View {
         )
     }
 
+    /// 켤 때는 알림 권한을 먼저 확인한다. 권한을 받아야만 켜지고, 거부되면 꺼진 채로 안내한다. (COM-07)
+    private var reminderToggle: Binding<Bool> {
+        Binding(
+            get: { reminderEnabled },
+            set: { newValue in
+                guard newValue else {
+                    reminderEnabled = false
+                    return
+                }
+                Task { await enableReminder() }
+            }
+        )
+    }
+
     private var appVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "-"
+    }
+
+    private func enableReminder() async {
+        // 처음에는 시스템 권한 창이 뜬다. 이미 허용했거나 거부했다면 창 없이 결과만 돌아온다.
+        if await reminderScheduler.requestAuthorization() {
+            reminderEnabled = true
+        } else {
+            showNotificationDenied = true
+        }
+    }
+
+    private func openAppSettings() {
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+            openURL(url)
+        }
     }
 
     private func deleteAll() {

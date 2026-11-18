@@ -24,6 +24,7 @@ struct DailyMoodProjectApp: App {
             RootView()
                 .environment(router)
                 .appAppearance()
+                .syncReminders()
         }
         .modelContainer(container)
     }
