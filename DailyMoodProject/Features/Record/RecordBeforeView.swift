@@ -5,7 +5,7 @@
 
 import SwiftUI
 
-/// 기록 탭 · 오늘 기록 전(②). 버튼이나 오늘의 질문으로 부담 없이 기록을 시작하게 한다. (REC-11~17)
+/// 기록 탭 · 오늘 기록 전(②). 버튼이나 오늘의 질문으로 부담 없이 기록을 시작하게 한다. (REC-08, 11~17)
 /// 다른 화면과 겹치지 않게 이 화면에서만 쓰는 부품은 모두 이 파일 안에 `private`으로 둔다.
 struct RecordBeforeView: View {
     /// 오늘의 질문 후보. 이 중에서 무작위로 고르고, 목록은 이후에 늘린다. (REC-14)
@@ -29,43 +29,77 @@ struct RecordBeforeView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                // 날짜와 제목
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(today.formattedFull)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.tint)
+                    Text("기록")
+                        .font(.system(size: 48, weight: .bold))
+                }
+                .padding(.horizontal)
+                .padding(.top, 8)
+                
                 emptyEmotionCard
-                questionCard
-                streakCard
+                    .padding(.horizontal)
+                cardRow
                 BeforeRecordEntryList(entries: entries)
+                    .padding(.horizontal)
                     .padding(.top, 8)
             }
-            .padding(.horizontal)
             .padding(.bottom, 24)
         }
         .background(Color(.systemGroupedBackground))
     }
 
+    // MARK: - REC-08
+
+    /// 기록 전에는 오늘의 질문과 연속 기록 카드를 가로로 넘겨 본다. 다음 카드가 살짝 보인다.
+    private var cardRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: 12) {
+                questionCard.beforeRecordCardWidth()
+                streakCard.beforeRecordCardWidth()
+            }
+            .scrollTargetLayout()
+            .fixedSize(horizontal: false, vertical: true)       // 가장 높은 카드에 높이를 맞춘다
+        }
+        .contentMargins(.horizontal, 16, for: .scrollContent)
+        .scrollTargetBehavior(.viewAligned)
+    }
+
     // MARK: - REC-11 · 13
 
     private var emptyEmotionCard: some View {
-        Card {
-            VStack(spacing: 16) {
-                DashedCircle()
-                VStack(spacing: 4) {
-                    Text("오늘은 어떤 하루였나요?").font(.title3.bold())
-                    Text("이모지 하나와 한 줄로 남겨요")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+        Card(cornerRadius: 32) {
+            VStack(alignment: .leading, spacing: 16) {
+                Label("오늘의 감정", systemImage: "face.smiling")
+                    .font(.headline)
+                    .foregroundStyle(.tint)
+
+                HStack(spacing: 16) {
+                    DashedCircle()
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("오늘은 어떤 하루였나요?").font(.title3.bold())
+                        Text("이모지 하나와 한 줄로 남겨요")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
                 }
-                .multilineTextAlignment(.center)
 
                 Button {
                     router.sheet = .editor(.new(prompt: nil))
                 } label: {
-                    Text("오늘의 감정 기록하기")
+                    Label("오늘의 감정 기록하기", systemImage: "plus")
                         .font(.headline)
-                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .background(.tint, in: Capsule())
+                        .shadow(color: .accentColor.opacity(0.3), radius: 10, y: 5)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .buttonStyle(.plain)
             }
-            .frame(maxWidth: .infinity)
         }
     }
 
@@ -75,24 +109,19 @@ struct RecordBeforeView: View {
         Button {
             router.sheet = .editor(.new(prompt: question))
         } label: {
-            Card {
-                AdaptiveStack(hAlignment: .center, spacing: 12) {
-                    Image(systemName: "text.bubble")
-                        .font(.title3)
+            Card(cornerRadius: 28) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Label("오늘의 질문", systemImage: "bubble.left")
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.tint)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("오늘의 질문")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text(question).font(.callout.weight(.semibold))
-                    }
-                    Spacer(minLength: 0)
-                    Image(systemName: "chevron.right")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.tertiary)
-                        .accessibilityHidden(true)
+                    Text(question)
+                        .font(.callout.weight(.bold))
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.leading)
+                    Text("탭하면 한 줄 쓰기로 이어져요")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
-                .foregroundStyle(.primary)
             }
         }
         .buttonStyle(.plain)
@@ -102,12 +131,16 @@ struct RecordBeforeView: View {
     // MARK: - REC-15
 
     private var streakCard: some View {
-        Card {
-            VStack(alignment: .leading, spacing: 4) {
-                Label("연속 기록", systemImage: "flame.fill")
+        Card(cornerRadius: 28) {
+            VStack(alignment: .leading, spacing: 8) {
+                Label("연속 기록", systemImage: "flame")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.orange)
-                Text("\(streak)일").font(.title.bold())
+                HStack(alignment: .center) {
+                    Text("\(streak)일").font(.system(size: 36, weight: .bold))
+                    Spacer(minLength: 8)
+                    streakDots
+                }
                 Text("오늘 기록하면 \(streak + 1)일째예요")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -115,22 +148,41 @@ struct RecordBeforeView: View {
             .accessibilityElement(children: .combine)
         }
     }
+
+    /// 어제까지 기록한 날은 채운 점, 오늘은 테두리만 있는 점이다. 최대 5개까지 보여 준다.
+    private var streakDots: some View {
+        HStack(spacing: 6) {
+            ForEach(0..<min(streak, 4), id: \.self) { _ in
+                Circle().fill(.orange).frame(width: 14, height: 14)
+            }
+            Circle().strokeBorder(.orange, lineWidth: 2).frame(width: 14, height: 14)
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+private extension View {
+    /// 가로 카드 줄 안의 카드 너비. 화면의 85%라서 다음 카드가 살짝 보인다.
+    func beforeRecordCardWidth() -> some View {
+        containerRelativeFrame(.horizontal) { length, _ in length * 0.85 }
+            .frame(maxHeight: .infinity, alignment: .top)
+    }
 }
 
 /// 점선 원. 아직 고른 감정이 없다는 뜻이다. (REC-11)
 private struct DashedCircle: View {
-    @ScaledMetric private var size: CGFloat = 84
+    @ScaledMetric private var size: CGFloat = 64
 
     var body: some View {
         // 글자를 아주 크게 해도 원이 화면을 다 차지하지 않게 상한을 둔다.
-        let side = min(size, 120)
+        let side = min(size, 96)
         Circle()
-            .strokeBorder(.tertiary, style: StrokeStyle(lineWidth: 2, dash: [6, 5]))
+            .strokeBorder(Color(.systemGray4), style: StrokeStyle(lineWidth: 2, dash: [5, 4]))
             .frame(width: side, height: side)
             .overlay {
                 Image(systemName: "face.smiling")
-                    .font(.title)
-                    .foregroundStyle(.tertiary)
+                    .font(.system(size: side * 0.5))
+                    .foregroundStyle(Color(.systemGray3))
             }
             .accessibilityHidden(true)
     }
@@ -238,7 +290,7 @@ private struct BeforeRecordEntryList: View {
 #if DEBUG
 #Preview("기록 전") {
     NavigationStack {
-        RecordBeforeView(today: DayKey(rawValue: 20250515), entries: PreviewData.entries.reversed())
+        RecordBeforeView(today: DayKey(rawValue: 20250514), entries: PreviewData.entries.reversed())
     }
     .environment(AppRouter())
     .tint(.indigo)
@@ -246,16 +298,18 @@ private struct BeforeRecordEntryList: View {
 
 #Preview("처음 설치") {
     NavigationStack {
-        RecordBeforeView(today: DayKey(rawValue: 20250515), entries: [])
+        RecordBeforeView(today: DayKey(rawValue: 20250514), entries: [])
     }
     .environment(AppRouter())
+    .tint(.indigo)
 }
 
 #Preview("AX5") {
     NavigationStack {
-        RecordBeforeView(today: DayKey(rawValue: 20250515), entries: PreviewData.entries.reversed())
+        RecordBeforeView(today: DayKey(rawValue: 20250514), entries: PreviewData.entries.reversed())
     }
     .environment(AppRouter())
     .environment(\.dynamicTypeSize, .accessibility5)
+    .tint(.indigo)
 }
 #endif

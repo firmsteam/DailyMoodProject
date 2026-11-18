@@ -27,9 +27,9 @@ struct RecordHomeView: View {
                 RecordBeforeView(today: today, entries: entries.map(\.snapshot))
             }
         }
-        .navigationTitle("기록")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            // 설정 버튼은 기록 탭에만 있다.
+            // 설정 버튼은 기록 탭에만 있다. (REC-18)
             ToolbarItem(placement: .primaryAction) {
                 Button("설정", systemImage: "gearshape") {
                     router.sheet = .settings
