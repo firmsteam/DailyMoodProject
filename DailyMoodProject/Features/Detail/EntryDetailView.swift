@@ -32,8 +32,11 @@ struct EntryDetailView: View {
 
     private var entry: MoodEntry? { entries.first }
 
-    /// 새 기록은 오늘만 남길 수 있어서(R-05), "삭제 후 다시 기록"은 오늘 기록에만 해당한다.
-    private var canRerecord: Bool { day == today }
+    /// 새 기록은 오늘까지의 날에만 남길 수 있어서(R-05), 삭제한 기록은 어느 날이든 다시 기록할 수 있다.
+    private var canRerecord: Bool { EntryValidator.isRecordable(day, today: today) }
+
+    /// 삭제 뒤 다시 기록할 수 있다는 안내. 오늘이면 "오늘", 지난 날이면 "그 날". (DTL-04, DTL-07)
+    private var rerecordDayText: String { day == today ? "오늘" : "그 날" }
 
     var body: some View {
         Group {
@@ -75,7 +78,7 @@ struct EntryDetailView: View {
             }
 
             Section {
-                LabeledContent("기록 시각", value: time(entry.createdAt))
+                LabeledContent("기록 시각", value: recordedAtText(entry))
                 if let modifiedAt = entry.modifiedAt {           // 수정한 적이 있을 때만 보여 준다. (DTL-03)
                     LabeledContent("수정 시각", value: time(modifiedAt))
                 }
@@ -94,19 +97,40 @@ struct EntryDetailView: View {
             Text(entry.text)
                 .font(.title2.bold())
                 .multilineTextAlignment(.center)
-            Text("\(day.formattedFull) · \(time(entry.createdAt))")
+            Text(subtitle(for: entry))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+            if entry.isRecordedLater {
+                Text("나중에 기록")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tint)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(entry.emotion.name), \(entry.text), \(day.formattedFull), \(time(entry.createdAt))")
+        .accessibilityLabel(
+            "\(entry.emotion.name), \(entry.text), \(subtitle(for: entry))" + (entry.isRecordedLater ? ", 나중에 기록" : "")
+        )
+    }
+
+    /// "5월 14일 수요일 · 오후 9:12". 나중에 남긴 기록은 "5월 10일 토요일 · 5월 14일 오후 9:30에 기록". (DTL-02, ADD-13)
+    private func subtitle(for entry: EntrySnapshot) -> String {
+        entry.isRecordedLater
+            ? "\(day.formattedFull) · \(recordedAtText(entry))에 기록"
+            : "\(day.formattedFull) · \(time(entry.createdAt))"
+    }
+
+    /// 기록한 시각. 기록한 날과 저장한 날이 다르면 저장한 날짜를 앞에 붙인다.
+    private func recordedAtText(_ entry: EntrySnapshot) -> String {
+        entry.isRecordedLater
+            ? "\(DayKey(entry.createdAt).formattedMonthDay) \(time(entry.createdAt))"
+            : time(entry.createdAt)
     }
 
     private var footerText: String {
         canRerecord
-            ? "하루에 한 번만 기록할 수 있어요. 수정은 언제든 가능하고, 삭제하면 오늘 다시 기록할 수 있어요."
+            ? "하루에 한 번만 기록할 수 있어요. 수정은 언제든 가능하고, 삭제하면 \(rerecordDayText) 다시 기록할 수 있어요."
             : "하루에 한 번만 기록할 수 있어요. 수정은 언제든 가능해요."
     }
 
@@ -126,7 +150,7 @@ struct EntryDetailView: View {
             Button("취소", role: .cancel) {}
         } message: {
             Text(canRerecord
-                 ? "삭제한 기록은 되돌릴 수 없어요.\n삭제 후 오늘 다시 기록할 수 있어요."
+                 ? "삭제한 기록은 되돌릴 수 없어요.\n삭제 후 \(rerecordDayText) 다시 기록할 수 있어요."
                  : "삭제한 기록은 되돌릴 수 없어요.")
         }
     }

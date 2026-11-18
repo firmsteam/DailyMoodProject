@@ -14,4 +14,7 @@ struct EntrySnapshot: Hashable, Sendable, Identifiable {
     let modifiedAt: Date?
 
     var id: DayKey { day }
+
+    /// 기록한 날과 저장한 날이 다르면 "나중에 기록"이다. 따로 저장하는 값은 없고 두 날짜를 비교해서 계산한다. (ADD-13)
+    var isRecordedLater: Bool { DayKey(createdAt) != day }
 }

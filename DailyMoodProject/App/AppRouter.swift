@@ -22,6 +22,14 @@ final class AppRouter {
 
     var sheet: Sheet?
     var selectedTab: AppTab = .record
+    /// 시트에서 방금 저장한 기록. 달력이 이 날을 선택하고 알림을 보여 준다. (ADD-05)
+    var savedEntry: SavedEntry?
+}
+
+/// 저장 알림용 이벤트. 같은 날을 지웠다가 다시 저장해도 변화로 감지되도록 `id`를 둔다.
+struct SavedEntry: Equatable {
+    let day: DayKey
+    let id = UUID()
 }
 
 /// 감정 기록 시트(③)가 열리는 방식.
@@ -30,11 +38,14 @@ enum EditorMode: Hashable, Identifiable {
     case new(prompt: String?)
     /// 기존 기록 수정. (③-1)
     case edit(DayKey)
+    /// 날짜를 바꿀 수 있는 새 기록. 달력 탭의 ＋에서 열린다. `initial`은 처음 선택된 날이다. (③-4)
+    case backfill(initial: DayKey)
 
     var id: String {
         switch self {
         case .new(let prompt): "new-\(prompt ?? "")"
         case .edit(let day): "edit-\(day.rawValue)"
+        case .backfill(let initial): "backfill-\(initial.rawValue)"
         }
     }
 }

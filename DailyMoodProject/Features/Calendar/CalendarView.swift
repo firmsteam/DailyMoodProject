@@ -7,8 +7,11 @@ import SwiftUI
 import SwiftData
 
 /// 달력 탭(④). 한 달을 격자로 보여 주고, 기록이 있는 날을 누르면 아래에 그날의 기록을 보여 준다.
-/// - CAL-01 제목, CAL-02 달 이동, CAL-03 ＋, CAL-04 요일 줄, CAL-05 날짜 칸
+/// - CAL-01 제목, CAL-02 달 이동, CAL-03 ＋(기록 추가), CAL-04 요일 줄, CAL-05 날짜 칸
 /// - CAL-06 날짜 칸 누르기, CAL-07 선택한 날 영역, CAL-08 지난 기록
+/// - 제목(연도·월)을 누르면 팝오버에서 원하는 연도와 월로 바로 이동한다.
+/// - 날짜 칸을 누르면 그 날을 선택하고, 선택한 날 영역에서 기록하거나 수정한다.
+/// - ADD-01~05 ＋로 지난 날 기록, ADD-13 "나중에 기록" 표시
 struct CalendarView: View {
     @Environment(AppRouter.self) private var router
     @Query private var entries: [MoodEntry]
@@ -17,6 +20,10 @@ struct CalendarView: View {
     @State private var monthStart: DayKey
     /// 아래 영역에 보여 줄 날. 기록이 없는 달로 옮기면 `nil`이다.
     @State private var selected: DayKey?
+    /// 지난 날 기록을 저장한 뒤 2초 동안 보여 주는 알림. (ADD-05)
+    @State private var toastText: String?
+    /// 연도·월 고르기 팝오버.
+    @State private var showsMonthPicker = false
 
     /// 미리보기에서 "오늘"을 고정하는 용도. 실제 앱에서는 `nil`이라 매번 현재 날짜를 쓴다.
     private let fixedToday: DayKey?
@@ -37,7 +44,7 @@ struct CalendarView: View {
 
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                titleBlock
+                titleBlock(byDay: byDay)
                 weekdayHeader
                 monthGrid(byDay: byDay)
                 selectedDayArea(byDay: byDay)
@@ -51,16 +58,23 @@ struct CalendarView: View {
         .toolbar {
             ToolbarItemGroup(placement: .topBarLeading) {
                 Button("이전 달", systemImage: "chevron.left") { moveMonth(by: -1, byDay: byDay) }
+                    .disabled(!canMoveToPreviousMonth)       // 가장 이른 날이 있는 달에서는 비활성
                 Button("다음 달", systemImage: "chevron.right") { moveMonth(by: 1, byDay: byDay) }
                     .disabled(!canMoveToNextMonth)           // 이번 달에서는 비활성 (CAL-02)
             }
             ToolbarItem(placement: .primaryAction) {
-                Button("오늘 기록하기", systemImage: "plus") { openEditorForToday(byDay: byDay) }
+                Button("기록 추가", systemImage: "plus") { openEditor(byDay: byDay) }       // ADD-01
             }
         }
+        .overlay(alignment: .bottom) { toast }
+        .onChange(of: router.savedEntry) { _, saved in
+            guard let saved else { return }
+            showSaved(saved.day)
+        }
         .onChange(of: Set(entries.map(\.dayKey))) { _, days in
-            // 선택한 날의 기록이 사라졌다면(삭제) 오늘로 돌아간다. 기록 없는 날은 선택할 수 없다. (CAL-06)
-            guard let selected, selected != today, !days.contains(selected.rawValue) else { return }
+            // 선택한 날의 기록이 사라졌어도(삭제) 기록할 수 있는 날이면 그대로 둔다. 기록할 수 없는 날이면 오늘로 돌아간다. (CAL-06)
+            guard let selected, !days.contains(selected.rawValue),
+                  !EntryValidator.isRecordable(selected, today: today) else { return }
             self.selected = today
             monthStart = today.firstOfMonth
         }
@@ -68,19 +82,56 @@ struct CalendarView: View {
 
     // MARK: - 제목 (CAL-01)
 
-    private var titleBlock: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(verbatim: "\(monthStart.year)년")      // 연도에 쉼표(2,026)가 붙지 않게 한다.
+    /// 제목을 누르면 연도·월 고르기 팝오버가 열린다.
+    private func titleBlock(byDay: [DayKey: MoodEntry]) -> some View {
+        Button { showsMonthPicker = true } label: {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 4) {
+                    Text(verbatim: "\(monthStart.year)년")      // 연도에 쉼표(2,026)가 붙지 않게 한다.
+                    Image(systemName: "chevron.down").imageScale(.small)
+                }
                 .font(.headline)
                 .foregroundStyle(.tint)
-            Text("\(monthStart.month)월")
-                .font(.largeTitle.bold())
+                Text("\(monthStart.month)월")
+                    .font(.largeTitle.bold())
+                    .foregroundStyle(.primary)
+            }
+            .frame(minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .padding(.top, 4)
         .padding(.bottom, 12)
+        .popover(isPresented: $showsMonthPicker) { monthPicker(byDay: byDay) }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(monthStart.formattedYearMonth)
-        .accessibilityAddTraits(.isHeader)
+        .accessibilityHint("눌러서 연도와 월 이동")
+        .accessibilityAddTraits([.isHeader, .isButton])
+    }
+
+    /// 연도와 월을 휠로 고른다. 고르는 즉시 달력이 그 달로 옮겨 가고, 이번 달 이후는 고를 수 없다.
+    private func monthPicker(byDay: [DayKey: MoodEntry]) -> some View {
+        let years = Array(EntryValidator.earliestDay.year...today.year)
+        let months = Array(1...(monthStart.year == today.year ? today.month : 12))
+
+        return HStack(spacing: 0) {
+            Picker("연도", selection: Binding(
+                get: { monthStart.year },
+                set: { jump(toYear: $0, month: monthStart.month, byDay: byDay) }
+            )) {
+                ForEach(years, id: \.self) { Text(verbatim: "\($0)년").tag($0) }
+            }
+            Picker("월", selection: Binding(
+                get: { monthStart.month },
+                set: { jump(toYear: monthStart.year, month: $0, byDay: byDay) }
+            )) {
+                ForEach(months, id: \.self) { Text(verbatim: "\($0)월").tag($0) }
+            }
+        }
+        .pickerStyle(.wheel)
+        .frame(width: 260, height: 180)
+        .padding(.horizontal)
+        .presentationCompactAdaptation(.popover)               // 아이폰에서도 시트가 아니라 팝오버로 보여 준다.
     }
 
     // MARK: - 요일 줄 (CAL-04)
@@ -121,19 +172,21 @@ struct CalendarView: View {
     private func cell(for day: DayKey?, byDay: [DayKey: MoodEntry]) -> some View {
         if let day {
             let entry = byDay[day]
+            // 기록이 있는 날과 기록할 수 있는 날(오늘까지의 모든 날)을 선택할 수 있다.
+            let isSelectable = entry != nil || EntryValidator.isRecordable(day, today: today)
             let content = DayCell(
                 day: day,
                 emotion: entry?.emotion,
                 isToday: day == today,
                 isFuture: day > today,
-                isSelected: day == selected
+                isSelected: day == selected,
+                isSelectable: isSelectable
             )
-            if entry != nil {
-                // 기록이 있는 날만 선택할 수 있다.
+            if isSelectable {
                 Button { selected = day } label: { content }
                     .buttonStyle(.plain)
             } else {
-                // 기록이 없는 날(오늘 기록 전 포함)과 미래 날짜는 눌러도 반응하지 않는다.
+                // 미래 날짜는 눌러도 반응하지 않는다.
                 content
             }
         } else {
@@ -147,7 +200,7 @@ struct CalendarView: View {
     private func selectedDayArea(byDay: [DayKey: MoodEntry]) -> some View {
         if let selected {
             VStack(alignment: .leading, spacing: 0) {
-                selectedHeader(for: selected)
+                selectedHeader(for: selected, hasEntry: byDay[selected] != nil)
                 if let entry = byDay[selected] {
                     NavigationLink(value: selected) {
                         CalendarRecordRow(
@@ -157,12 +210,7 @@ struct CalendarView: View {
                     }
                     .buttonStyle(.plain)
                 } else {
-                    Text("아직 기록이 없어요")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
-                        .padding(.horizontal, 4)
-                    Divider()
+                    emptyDay(selected)
                 }
                 previousRecords(before: selected, byDay: byDay)
             }
@@ -175,21 +223,51 @@ struct CalendarView: View {
         }
     }
 
-    private func selectedHeader(for day: DayKey) -> some View {
+    private func selectedHeader(for day: DayKey, hasEntry: Bool) -> some View {
         HStack(spacing: 8) {
-            Text(day.formattedFull)
-                .foregroundStyle(.secondary)
-            if day == today {
-                Text("오늘")
-                    .foregroundStyle(.tint)
+            HStack(spacing: 8) {
+                Text(day.formattedFull)
+                    .foregroundStyle(.secondary)
+                if day == today {
+                    Text("오늘")
+                        .foregroundStyle(.tint)
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
+
+            Spacer(minLength: 8)
+
+            if hasEntry {
+                Button("수정", systemImage: "pencil") { router.sheet = .editor(.edit(day)) }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("\(day.formattedMonthDay) 기록 수정")
             }
         }
         .font(.subheadline.weight(.semibold))
         .padding(.top, 20)
         .padding(.bottom, 8)
         .padding(.horizontal, 4)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isHeader)
+    }
+
+    /// 기록이 없는 날. 기록할 수 있는 날이면 그 날로 기록 시트를 여는 버튼을 보여 준다.
+    private func emptyDay(_ day: DayKey) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("아직 기록이 없어요")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            if EntryValidator.isRecordable(day, today: today) {
+                Button(day == today ? "오늘 기록하기" : "이 날 기록하기", systemImage: "plus") {
+                    router.sheet = .editor(.backfill(initial: day))
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+        .padding(.vertical, 10)
+        .padding(.horizontal, 4)
+        .overlay(alignment: .bottom) { Divider() }
     }
 
     /// 선택한 날 이전의 기록을 최근 순으로 보여 준다. 없으면 제목도 숨긴다.
@@ -212,7 +290,7 @@ struct CalendarView: View {
             LazyVStack(spacing: 0) {
                 ForEach(previous) { entry in
                     NavigationLink(value: entry.day) {
-                        CalendarRecordRow(entry: entry, caption: entry.day.formattedMonthDay)
+                        CalendarRecordRow(entry: entry, caption: previousCaption(for: entry))
                     }
                     .buttonStyle(.plain)
                 }
@@ -220,11 +298,56 @@ struct CalendarView: View {
         }
     }
 
+    // MARK: - 저장 알림 (ADD-05)
+
+    @ViewBuilder
+    private var toast: some View {
+        if let toastText {
+            Text(toastText)
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 12)
+                .background(.regularMaterial, in: Capsule())
+                .padding(.bottom, 24)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .accessibilityHidden(true)                       // 같은 문구를 음성 안내로 따로 읽어 준다.
+        }
+    }
+
+    /// 지난 기록 행의 보조 글. 나중에 남긴 기록은 "5월 10일 · 나중에 기록". (ADD-13)
+    private func previousCaption(for entry: EntrySnapshot) -> String {
+        entry.isRecordedLater ? "\(entry.day.formattedMonthDay) · 나중에 기록" : entry.day.formattedMonthDay
+    }
+
     // MARK: - 동작
 
-    /// 오늘 기록하기. 오늘 기록이 이미 있으면 수정 모드로 연다. (CAL-03, R-02)
-    private func openEditorForToday(byDay: [DayKey: MoodEntry]) {
-        router.sheet = .editor(byDay[today] != nil ? .edit(today) : .new(prompt: nil))
+    /// ＋. 오늘 기록 전이면 오늘, 오늘 기록이 있으면 가장 최근에 빠뜨린 날로 날짜 선택 시트를 연다.
+    /// 둘 다 아니면 오늘 기록을 수정 모드로 연다. (CAL-03, ADD-02, E-1~E-3)
+    private func openEditor(byDay: [DayKey: MoodEntry]) {
+        if let initial = MissedDays.initialDay(recorded: Set(byDay.keys), today: today) {
+            router.sheet = .editor(.backfill(initial: initial))
+        } else {
+            router.sheet = .editor(.edit(today))
+        }
+    }
+
+    /// 저장한 날로 달력을 옮기고 그 날을 선택한 뒤, 알림을 2초 동안 보여 준다. (ADD-05)
+    private func showSaved(_ day: DayKey) {
+        monthStart = day.firstOfMonth
+        selected = day
+        let message = "\(day.formattedMonthDay) 기록을 저장했어요"
+        withAnimation { toastText = message }
+        AccessibilityNotification.Announcement(message).post()
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled, toastText == message else { return }
+            withAnimation { toastText = nil }
+        }
+    }
+
+    private var canMoveToPreviousMonth: Bool {
+        monthStart > EntryValidator.earliestDay.firstOfMonth
     }
 
     private var canMoveToNextMonth: Bool {
@@ -233,9 +356,18 @@ struct CalendarView: View {
 
     private func moveMonth(by value: Int, byDay: [DayKey: MoodEntry]) {
         let moved = monthStart.firstOfMonth(adding: value)
-        guard moved <= today.firstOfMonth else { return }       // 아직 오지 않은 달로는 갈 수 없다.
+        guard moved <= today.firstOfMonth, moved >= EntryValidator.earliestDay.firstOfMonth else { return }   // 아직 오지 않은 달과 가장 이른 달 이전으로는 갈 수 없다.
         monthStart = moved
         selected = defaultSelection(in: moved, byDay: byDay)
+    }
+
+    /// 연도와 월을 골라 바로 이동한다. 이번 달보다 뒤로는 갈 수 없어서, 넘어서면 이번 달로 맞춘다.
+    private func jump(toYear year: Int, month: Int, byDay: [DayKey: MoodEntry]) {
+        let requested = DayKey(rawValue: year * 10_000 + month * 100 + 1)
+        let target = min(requested, today.firstOfMonth)
+        guard target != monthStart else { return }
+        monthStart = target
+        selected = defaultSelection(in: target, byDay: byDay)
     }
 
     /// 달을 옮긴 뒤 아래에 보여 줄 날. 이번 달이면 오늘, 아니면 그 달의 마지막 기록. 기록이 없으면 `nil`.
@@ -252,11 +384,14 @@ struct CalendarView: View {
         )
     }
 
-    /// 오늘은 "오늘 오후 9:12", 다른 날은 "오후 9:12". (CAL-07)
+    /// 오늘은 "오늘 오후 9:12", 다른 날은 "오후 9:12". 나중에 남긴 기록은 "나중에 기록 · 5월 14일 오후 9:30". (CAL-07, ADD-13)
     private func timeCaption(for entry: EntrySnapshot) -> String {
         let time = entry.createdAt.formatted(
             .dateTime.hour().minute().locale(Locale(identifier: "ko_KR"))
         )
+        if entry.isRecordedLater {
+            return "나중에 기록 · \(DayKey(entry.createdAt).formattedMonthDay) \(time)"
+        }
         return entry.day == today ? "오늘 \(time)" : time
     }
 }
@@ -271,6 +406,7 @@ private struct DayCell: View {
     let isToday: Bool
     let isFuture: Bool
     let isSelected: Bool
+    let isSelectable: Bool
 
     @ScaledMetric private var circleSize: CGFloat = 28
     @ScaledMetric private var markerHeight: CGFloat = 24
@@ -298,7 +434,7 @@ private struct DayCell: View {
         .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText)
-        .accessibilityAddTraits(emotion == nil ? [] : .isButton)
+        .accessibilityAddTraits(isSelectable ? .isButton : [])
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
