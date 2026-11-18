@@ -21,5 +21,13 @@ extension ModelContainer {
         try! SampleData.insert(into: container.mainContext)
         return container
     }
+
+    /// 한 달치(30건) 테스트 기록이 들어 있는 메모리 컨테이너.
+    @MainActor
+    static var previewMonth: ModelContainer {
+        let container = try! AppContainer.make(inMemory: true)
+        try! SampleData.insert(into: container.mainContext, entries: SampleData.monthEntries)
+        return container
+    }
 }
 #endif

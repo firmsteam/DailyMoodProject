@@ -9,6 +9,7 @@ import SwiftData
 /// 달력 탭(④). 한 달을 격자로 보여 주고, 기록이 있는 날을 누르면 아래에 그날의 기록을 보여 준다.
 /// - CAL-01 제목, CAL-02 달 이동, CAL-03 ＋(기록 추가), CAL-04 요일 줄, CAL-05 날짜 칸
 /// - CAL-06 날짜 칸 누르기, CAL-07 선택한 날 영역, CAL-08 지난 기록
+/// - 선택한 날에 기록이 있으면 그 감정에 맞는 옷차림·활동 추천 카드를 보여 준다.
 /// - 제목(연도·월)을 누르면 팝오버에서 원하는 연도와 월로 바로 이동한다.
 /// - 날짜 칸을 누르면 그 날을 선택하고, 선택한 날 영역에서 기록하거나 수정한다.
 /// - ADD-01~05 ＋로 지난 날 기록, ADD-13 "나중에 기록" 표시
@@ -24,6 +25,8 @@ struct CalendarView: View {
     @State private var toastText: String?
     /// 연도·월 고르기 팝오버.
     @State private var showsMonthPicker = false
+    /// 지난 기록에 적용한 감정 필터. `nil`이면 전체.
+    @State private var emotionFilter: Emotion?
 
     /// 미리보기에서 "오늘"을 고정하는 용도. 실제 앱에서는 `nil`이라 매번 현재 날짜를 쓴다.
     private let fixedToday: DayKey?
@@ -209,6 +212,9 @@ struct CalendarView: View {
                         )
                     }
                     .buttonStyle(.plain)
+
+                    SuggestionCard(emotion: entry.emotion)       // 기록한 감정에 맞는 옷차림·활동 추천
+                        .padding(.top, 16)
                 } else {
                     emptyDay(selected)
                 }
@@ -240,7 +246,9 @@ struct CalendarView: View {
 
             if hasEntry {
                 Button("수정", systemImage: "pencil") { router.sheet = .editor(.edit(day)) }
-                    .buttonStyle(.borderless)
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .tint(.indigo)
                     .accessibilityLabel("\(day.formattedMonthDay) 기록 수정")
             }
         }
@@ -260,8 +268,10 @@ struct CalendarView: View {
                 Button(day == today ? "오늘 기록하기" : "이 날 기록하기", systemImage: "plus") {
                     router.sheet = .editor(.backfill(initial: day))
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.glassProminent)           // 화면에서 가장 중요한 동작 하나
                 .controlSize(.large)
+                .tint(.indigo)
+                .frame(maxWidth: .infinity)
             }
         }
         .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
@@ -277,6 +287,9 @@ struct CalendarView: View {
             .filter { $0.day < day }
             .sorted { $0.day > $1.day }
             .map(\.snapshot)
+        // 선택한 감정의 기록이 하나도 없으면 필터를 적용하지 않는다.
+        let activeFilter = previous.contains { $0.emotion == emotionFilter } ? emotionFilter : nil
+        let shown = activeFilter.map { filter in previous.filter { $0.emotion == filter } } ?? previous
 
         if !previous.isEmpty {
             Text("지난 기록")
@@ -287,8 +300,10 @@ struct CalendarView: View {
                 .padding(.horizontal, 4)
                 .accessibilityAddTraits(.isHeader)
 
+            emotionFilterChips(for: previous, active: activeFilter)
+
             LazyVStack(spacing: 0) {
-                ForEach(previous) { entry in
+                ForEach(shown) { entry in
                     NavigationLink(value: entry.day) {
                         CalendarRecordRow(entry: entry, caption: previousCaption(for: entry))
                     }
@@ -296,6 +311,27 @@ struct CalendarView: View {
                 }
             }
         }
+    }
+
+    /// 지난 기록을 감정별로 거르는 칩 줄. 기록이 있는 감정만 보여 준다.
+    private func emotionFilterChips(for previous: [EntrySnapshot], active: Emotion?) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                EmotionChip(emotion: nil, count: previous.count, isSelected: active == nil) {
+                    emotionFilter = nil
+                }
+                ForEach(Emotion.allCases) { emotion in
+                    let count = previous.filter { $0.emotion == emotion }.count
+                    if count > 0 {
+                        EmotionChip(emotion: emotion, count: count, isSelected: active == emotion) {
+                            emotionFilter = emotion
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 4)
+        }
+        .padding(.bottom, 8)
     }
 
     // MARK: - 저장 알림 (ADD-05)
@@ -509,6 +545,15 @@ private struct CalendarRecordRow: View {
     }
     .environment(AppRouter())
     .modelContainer(.preview)
+}
+
+#Preview("한 달치 기록") {
+    NavigationStack {
+        CalendarView(today: PreviewData.today)
+            .navigationDestination(for: DayKey.self) { Text($0.formattedFull) }
+    }
+    .environment(AppRouter())
+    .modelContainer(.previewMonth)
 }
 
 #Preview("기록 없음") {
