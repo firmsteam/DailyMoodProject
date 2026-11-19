@@ -7,12 +7,12 @@ import SwiftUI
 import SwiftData
 
 /// 달력 탭(④). 한 달을 격자로 보여 주고, 기록이 있는 날을 누르면 아래에 그날의 기록을 보여 준다.
-/// - CAL-01 제목, CAL-02 달 이동, CAL-03 ＋(기록 추가), CAL-04 요일 줄, CAL-05 날짜 칸
+/// - CAL-01 제목, CAL-02 달 이동, CAL-04 요일 줄, CAL-05 날짜 칸
 /// - CAL-06 날짜 칸 누르기, CAL-07 선택한 날 영역, CAL-08 지난 기록
 /// - 선택한 날에 기록이 있으면 그 감정에 맞는 옷차림·활동 추천 카드를 보여 준다.
 /// - 제목(연도·월)을 누르면 팝오버에서 원하는 연도와 월로 바로 이동한다.
-/// - 날짜 칸을 누르면 그 날을 선택하고, 선택한 날 영역에서 기록하거나 수정한다.
-/// - ADD-01~05 ＋로 지난 날 기록, ADD-13 "나중에 기록" 표시
+/// - 날짜 칸을 누르면 그 날을 선택하고, 기록이 없는 날은 선택한 날 영역에서 기록한다.
+/// - ADD-05 저장 알림, ADD-13 "나중에 기록" 표시
 struct CalendarView: View {
     @Environment(AppRouter.self) private var router
     @Query private var entries: [MoodEntry]
@@ -64,9 +64,6 @@ struct CalendarView: View {
                     .disabled(!canMoveToPreviousMonth)       // 가장 이른 날이 있는 달에서는 비활성
                 Button("다음 달", systemImage: "chevron.right") { moveMonth(by: 1, byDay: byDay) }
                     .disabled(!canMoveToNextMonth)           // 이번 달에서는 비활성 (CAL-02)
-            }
-            ToolbarItem(placement: .primaryAction) {
-                Button("기록 추가", systemImage: "plus") { openEditor(byDay: byDay) }       // ADD-01
             }
         }
         .overlay(alignment: .bottom) { toast }
@@ -203,7 +200,7 @@ struct CalendarView: View {
     private func selectedDayArea(byDay: [DayKey: MoodEntry]) -> some View {
         if let selected {
             VStack(alignment: .leading, spacing: 0) {
-                selectedHeader(for: selected, hasEntry: byDay[selected] != nil)
+                selectedHeader(for: selected)
                 if let entry = byDay[selected] {
                     NavigationLink(value: selected) {
                         CalendarRecordRow(
@@ -229,7 +226,7 @@ struct CalendarView: View {
         }
     }
 
-    private func selectedHeader(for day: DayKey, hasEntry: Bool) -> some View {
+    private func selectedHeader(for day: DayKey) -> some View {
         HStack(spacing: 8) {
             HStack(spacing: 8) {
                 Text(day.formattedFull)
@@ -243,14 +240,6 @@ struct CalendarView: View {
             .accessibilityAddTraits(.isHeader)
 
             Spacer(minLength: 8)
-
-            if hasEntry {
-                Button("수정", systemImage: "pencil") { router.sheet = .editor(.edit(day)) }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                    .tint(.indigo)
-                    .accessibilityLabel("\(day.formattedMonthDay) 기록 수정")
-            }
         }
         .font(.subheadline.weight(.semibold))
         .padding(.top, 20)
@@ -357,16 +346,6 @@ struct CalendarView: View {
     }
 
     // MARK: - 동작
-
-    /// ＋. 오늘 기록 전이면 오늘, 오늘 기록이 있으면 가장 최근에 빠뜨린 날로 날짜 선택 시트를 연다.
-    /// 둘 다 아니면 오늘 기록을 수정 모드로 연다. (CAL-03, ADD-02, E-1~E-3)
-    private func openEditor(byDay: [DayKey: MoodEntry]) {
-        if let initial = MissedDays.initialDay(recorded: Set(byDay.keys), today: today) {
-            router.sheet = .editor(.backfill(initial: initial))
-        } else {
-            router.sheet = .editor(.edit(today))
-        }
-    }
 
     /// 저장한 날로 달력을 옮기고 그 날을 선택한 뒤, 알림을 2초 동안 보여 준다. (ADD-05)
     private func showSaved(_ day: DayKey) {
