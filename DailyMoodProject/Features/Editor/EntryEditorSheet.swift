@@ -87,7 +87,7 @@ private struct EntryEditorForm: View {
                     Text("하루에 한 번만 기록할 수 있어요.")
                 }
             }
-            .navigationTitle(isEditing ? "기록 수정" : "오늘의 기록")
+            .navigationTitle(isEditing ? "기록 수정" : (draft.day == .today() ? "오늘의 기록" : "지난 날 기록"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
