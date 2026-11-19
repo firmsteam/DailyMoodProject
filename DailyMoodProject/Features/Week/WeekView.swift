@@ -9,7 +9,6 @@ import SwiftData
 /// 주간 탭(⑤). 한 주(일~토)의 대표 감정, 요일별 감정, 요일별 기록을 보여 준다.
 /// 주 이동(‹ ›)과 ＋는 시스템 툴바 버튼이라 iOS 26에서 자동으로 글래스가 된다.
 struct WeekView: View {
-    @Environment(AppRouter.self) private var router
     @Query(sort: \MoodEntry.dayKey) private var allEntries: [MoodEntry]
 
     @State private var week = WeekRange.current()
@@ -48,17 +47,9 @@ struct WeekView: View {
                 .disabled(!week.canGoNext(today: today))
             }
             ToolbarItem(placement: .primaryAction) {
-                Button("오늘 기록하기", systemImage: "plus") {
-                    recordToday(today)
-                }
+                RecordDayMenu(days: week.days, entries: entries, today: today)
             }
         }
-    }
-
-    /// 오늘 기록이 이미 있으면 수정 시트로, 없으면 새 기록 시트로 연다. 하루 한 건이라 덮어쓰지 않게 한다.
-    private func recordToday(_ today: DayKey) {
-        let hasToday = allEntries.contains { $0.dayKey == today.rawValue }
-        router.sheet = .editor(hasToday ? .edit(today) : .new(prompt: nil))
     }
 }
 

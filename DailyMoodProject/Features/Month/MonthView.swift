@@ -10,7 +10,6 @@ import Charts
 /// 월간 탭(⑥). 한 달의 기록한 날, 연속 기록, 감정 분포, 대표 한 줄을 요약해서 보여 준다.
 /// 달 이동(‹ ›)과 ＋는 시스템 툴바 버튼이라 iOS 26에서 자동으로 글래스가 된다.
 struct MonthView: View {
-    @Environment(AppRouter.self) private var router
     @Query(sort: \MoodEntry.dayKey) private var allEntries: [MoodEntry]
 
     @State private var month = MonthRange.current()
@@ -59,17 +58,13 @@ struct MonthView: View {
                 .disabled(!month.canGoNext(today: today))
             }
             ToolbarItem(placement: .primaryAction) {
-                Button("오늘 기록하기", systemImage: "plus") {
-                    recordToday(today)
-                }
+                RecordDayMenu(
+                    days: month.days,
+                    entries: Dictionary(monthEntries.map { ($0.day, $0) }, uniquingKeysWith: { first, _ in first }),
+                    today: today
+                )
             }
         }
-    }
-
-    /// 오늘 기록이 이미 있으면 수정 시트로, 없으면 새 기록 시트로 연다. 하루 한 건이라 덮어쓰지 않게 한다.
-    private func recordToday(_ today: DayKey) {
-        let hasToday = allEntries.contains { $0.dayKey == today.rawValue }
-        router.sheet = .editor(hasToday ? .edit(today) : .new(prompt: nil))
     }
 }
 

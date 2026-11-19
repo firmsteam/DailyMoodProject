@@ -29,6 +29,11 @@ struct MonthRange: Hashable, Sendable {
 
     var end: DayKey { DayKey(rawValue: start.rawValue + dayCount() - 1) }
 
+    /// 1일부터 말일까지.
+    var days: [DayKey] {
+        (0..<dayCount()).map { start.adding(days: $0) }
+    }
+
     func contains(_ day: DayKey) -> Bool {
         day.year == year && day.month == month
     }
