@@ -32,11 +32,11 @@ struct EntryDetailView: View {
 
     private var entry: MoodEntry? { entries.first }
 
-    /// 새 기록은 오늘까지의 날에만 남길 수 있어서(R-05), 삭제한 기록은 어느 날이든 다시 기록할 수 있다.
-    private var canRerecord: Bool { EntryValidator.isRecordable(day, today: today) }
+    /// 새 기록은 오늘만 남길 수 있어서, 삭제한 기록은 오늘 것일 때만 다시 기록할 수 있다.
+    private var canRerecord: Bool { day == today }
 
-    /// 삭제 뒤 다시 기록할 수 있다는 안내. 오늘이면 "오늘", 지난 날이면 "그 날". (DTL-04, DTL-07)
-    private var rerecordDayText: String { day == today ? "오늘" : "그 날" }
+    /// 삭제 뒤 다시 기록할 수 있다는 안내에 쓰는 날. (DTL-04, DTL-07)
+    private var rerecordDayText: String { "오늘" }
 
     var body: some View {
         Group {

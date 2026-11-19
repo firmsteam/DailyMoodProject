@@ -38,14 +38,11 @@ enum EditorMode: Hashable, Identifiable {
     case new(prompt: String?)
     /// 기존 기록 수정. (③-1)
     case edit(DayKey)
-    /// 날짜를 바꿀 수 있는 새 기록. 달력 탭의 ＋에서 열린다. `initial`은 처음 선택된 날이다. (③-4)
-    case backfill(initial: DayKey)
 
     var id: String {
         switch self {
         case .new(let prompt): "new-\(prompt ?? "")"
         case .edit(let day): "edit-\(day.rawValue)"
-        case .backfill(let initial): "backfill-\(initial.rawValue)"
         }
     }
 }

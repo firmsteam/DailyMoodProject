@@ -65,6 +65,11 @@ struct CalendarView: View {
                 Button("다음 달", systemImage: "chevron.right") { moveMonth(by: 1, byDay: byDay) }
                     .disabled(!canMoveToNextMonth)           // 이번 달에서는 비활성 (CAL-02)
             }
+            ToolbarItem(placement: .primaryAction) {
+                // 모양만 보여 주는 ＋. 버튼이 아니라서 눌러도 아무 반응이 없다.
+                Image(systemName: "plus")
+                    .accessibilityHidden(true)
+            }
         }
         .overlay(alignment: .bottom) { toast }
         .onChange(of: router.savedEntry) { _, saved in
@@ -247,15 +252,15 @@ struct CalendarView: View {
         .padding(.horizontal, 4)
     }
 
-    /// 기록이 없는 날. 기록할 수 있는 날이면 그 날로 기록 시트를 여는 버튼을 보여 준다.
+    /// 기록이 없는 날. 오늘이면 기록 시트를 여는 버튼을 보여 준다. 지난 날은 새로 기록할 수 없다.
     private func emptyDay(_ day: DayKey) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("아직 기록이 없어요")
                 .font(.callout)
                 .foregroundStyle(.secondary)
-            if EntryValidator.isRecordable(day, today: today) {
-                Button(day == today ? "오늘 기록하기" : "이 날 기록하기", systemImage: "plus") {
-                    router.sheet = .editor(.backfill(initial: day))
+            if day == today {
+                Button("오늘 기록하기", systemImage: "plus") {
+                    router.sheet = .editor(.new(prompt: nil))
                 }
                 .buttonStyle(.glassProminent)           // 화면에서 가장 중요한 동작 하나
                 .controlSize(.large)
