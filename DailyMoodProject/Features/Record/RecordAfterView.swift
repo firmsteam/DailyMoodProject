@@ -21,23 +21,25 @@ struct RecordAfterView: View {
         let streak = StreakStats.info(entries, today: today)
 
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 0) {
                 RecordHeader(today: today)
 
                 todayCard
-                    .padding(.horizontal)
+                    .padding(.horizontal, 16)
 
                 RecordCardRow {
-                    StreakCard(info: streak, today: today, recorded: Set(entries.map(\.day)))
-                        .recordCardWidth()
+                    RecordStreakCard(
+                        days: streak.current,
+                        caption: streak.message,
+                        today: today,
+                        recorded: Set(entries.map(\.day))
+                    )
                     if let insight = InsightCard(entries: entries) {
-                        insight.recordCardWidth()
+                        insight
                     }
                 }
 
                 RecordEntryList(entries: entries)
-                    .padding(.horizontal)
-                    .padding(.top, 8)
             }
             .padding(.bottom, 24)
         }
@@ -47,23 +49,26 @@ struct RecordAfterView: View {
     // MARK: - REC-03 · 04
 
     private var todayCard: some View {
-        Card(cornerRadius: 32) {
-            VStack(alignment: .leading, spacing: 16) {
+        Card {
+            VStack(alignment: .leading, spacing: 0) {
                 Label("오늘의 감정", systemImage: "face.smiling")
-                    .font(.headline)
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.tint)
+                    .frame(minHeight: 21, alignment: .leading)      // 시안의 카드 높이 185를 맞춘다
 
-                AdaptiveStack(hAlignment: .center, spacing: 16) {
+                AdaptiveStack(hAlignment: .center, spacing: 14) {
                     EmojiCircle(emoji: todayEntry.emotion.emoji)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(todayEntry.emotion.name).font(.title2.bold())
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(todayEntry.emotion.name).font(.title3.weight(.semibold))
                         Text(todayEntry.text)
-                            .font(.body)
-                            .foregroundStyle(.secondary)
+                            .font(.subheadline)
+                            .foregroundStyle(.primary.opacity(0.75))
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Spacer(minLength: 0)
                 }
                 .accessibilityElement(children: .combine)
+                .padding(.top, 10)
+                .padding(.bottom, 14)
 
                 Button {
                     router.sheet = .editor(.edit(todayEntry.day))
@@ -72,7 +77,7 @@ struct RecordAfterView: View {
                         .font(.headline)
                         .foregroundStyle(.tint)
                         .frame(maxWidth: .infinity, minHeight: 48)
-                        .background(.tint.opacity(0.15), in: Capsule())
+                        .background(.tint.opacity(0.12), in: Capsule())
                         .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -90,51 +95,10 @@ private struct EmojiCircle: View {
         // 글자를 아주 크게 해도 원이 화면을 다 차지하지 않게 상한을 둔다.
         let side = min(size, 96)
         Circle()
-            .fill(Color(.systemGray6))
+            .fill(Color(.tertiarySystemFill))
             .frame(width: side, height: side)
-            .overlay { Text(emoji).font(.system(size: side * 0.6)) }
+            .overlay { Text(emoji).font(.system(size: side * 0.625)) }
             .accessibilityHidden(true)
-    }
-}
-
-// MARK: - REC-05
-
-/// 연속 일수, 이번 주 일~토 7개 점, 이전 최장 기록과 비교한 문구.
-private struct StreakCard: View {
-    let info: StreakInfo
-    let today: DayKey
-    let recorded: Set<DayKey>
-
-    var body: some View {
-        Card(cornerRadius: 28) {
-            VStack(alignment: .leading, spacing: 8) {
-                Label("연속 기록", systemImage: "flame")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.orange)
-                HStack(alignment: .center) {
-                    Text("\(info.current)일").font(.system(size: 36, weight: .bold))
-                    Spacer(minLength: 8)
-                    weekDots
-                }
-                Text(info.message)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("연속 기록, \(info.current)일, \(info.message)")
-        }
-    }
-
-    /// 이번 주 일요일부터 토요일까지. 기록한 날은 채운 점이다.
-    private var weekDots: some View {
-        HStack(spacing: 6) {
-            ForEach(WeekRange(containing: today).days, id: \.self) { day in
-                Circle()
-                    .fill(recorded.contains(day) ? AnyShapeStyle(.orange) : AnyShapeStyle(Color(.systemGray5)))
-                    .frame(width: 14, height: 14)
-            }
-        }
-        .accessibilityHidden(true)
     }
 }
 
@@ -157,22 +121,20 @@ private struct InsightCard: View {
     }
 
     var body: some View {
-        Card(cornerRadius: 28) {
-            VStack(alignment: .leading, spacing: 8) {
-                Label("인사이트", systemImage: "lightbulb")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.green)
-                HStack(spacing: 8) {
-                    EmojiText(emotion.emoji, size: 36, relativeTo: .largeTitle)
-                    Text("\(days)일").font(.system(size: 36, weight: .bold))
-                }
-                Text(sentence)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+        RecordMiniCard {
+            RecordMiniHeader(title: "인사이트", systemImage: "lightbulb", color: .green)
+            Spacer(minLength: 0)
+            HStack(spacing: 8) {
+                EmojiText(emotion.emoji, size: 28, relativeTo: .title)
+                Text("\(days)일").font(.title.bold())
             }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("인사이트, \(sentence), \(days)일")
+            Spacer(minLength: 0)
+            Text(sentence)
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("인사이트, \(sentence), \(days)일")
     }
 }
 

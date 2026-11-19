@@ -28,18 +28,23 @@ struct RecordBeforeView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 0) {
                 RecordHeader(today: today)
 
                 emptyEmotionCard
-                    .padding(.horizontal)
+                    .padding(.horizontal, 16)
+
                 RecordCardRow {
-                    questionCard.recordCardWidth()
-                    streakCard.recordCardWidth()
+                    questionCard
+                    RecordStreakCard(
+                        days: streak,
+                        caption: "오늘 기록하면 \(streak + 1)일째예요",
+                        today: today,
+                        recorded: Set(entries.map(\.day))
+                    )
                 }
+
                 RecordEntryList(entries: entries)
-                    .padding(.horizontal)
-                    .padding(.top, 8)
             }
             .padding(.bottom, 24)
         }
@@ -49,22 +54,25 @@ struct RecordBeforeView: View {
     // MARK: - REC-11 · 13
 
     private var emptyEmotionCard: some View {
-        Card(cornerRadius: 32) {
-            VStack(alignment: .leading, spacing: 16) {
+        Card {
+            VStack(alignment: .leading, spacing: 0) {
                 Label("오늘의 감정", systemImage: "face.smiling")
-                    .font(.headline)
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.tint)
+                    .frame(minHeight: 21, alignment: .leading)      // 시안의 카드 높이 185를 맞춘다
 
-                HStack(spacing: 16) {
+                AdaptiveStack(hAlignment: .center, spacing: 14) {
                     DashedCircle()
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("오늘은 어떤 하루였나요?").font(.title3.bold())
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("오늘은 어떤 하루였나요?").font(.title3.weight(.semibold))
                         Text("이모지 하나와 한 줄로 남겨요")
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.primary.opacity(0.75))
                     }
                     Spacer(minLength: 0)
                 }
+                .padding(.top, 10)
+                .padding(.bottom, 14)
 
                 Button {
                     router.sheet = .editor(.new(prompt: nil))
@@ -87,59 +95,25 @@ struct RecordBeforeView: View {
         Button {
             router.sheet = .editor(.new(prompt: question))
         } label: {
-            Card(cornerRadius: 28) {
-                VStack(alignment: .leading, spacing: 10) {
-                    Label("오늘의 질문", systemImage: "bubble.left")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.tint)
-                    Text(question)
-                        .font(.callout.weight(.bold))
-                        .foregroundStyle(.primary)
-                        .multilineTextAlignment(.leading)
-                    Text("탭하면 한 줄 쓰기로 이어져요")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
+            RecordMiniCard {
+                RecordMiniHeader(title: "오늘의 질문", systemImage: "bubble.left", color: .accentColor)
+                Spacer(minLength: 0)
+                Text(question)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+                Text("탭하면 한 줄 쓰기로 이어져요")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
         .buttonStyle(.plain)
         .accessibilityHint("한 줄 입력칸이 바로 열려요")
     }
-
-    // MARK: - REC-15
-
-    private var streakCard: some View {
-        Card(cornerRadius: 28) {
-            VStack(alignment: .leading, spacing: 8) {
-                Label("연속 기록", systemImage: "flame")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.orange)
-                HStack(alignment: .center) {
-                    Text("\(streak)일").font(.system(size: 36, weight: .bold))
-                    Spacer(minLength: 8)
-                    streakDots
-                }
-                Text("오늘 기록하면 \(streak + 1)일째예요")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            .accessibilityElement(children: .combine)
-        }
-    }
-
-    /// 어제까지 기록한 날은 채운 점, 오늘은 테두리만 있는 점이다. 최대 5개까지 보여 준다.
-    private var streakDots: some View {
-        HStack(spacing: 6) {
-            ForEach(0..<min(streak, 4), id: \.self) { _ in
-                Circle().fill(.orange).frame(width: 14, height: 14)
-            }
-            Circle().strokeBorder(.orange, lineWidth: 2).frame(width: 14, height: 14)
-        }
-        .accessibilityHidden(true)
-    }
 }
 
-/// 점선 원. 아직 고른 감정이 없다는 뜻이다. (REC-11)
+/// 점선 원. 아직 고른 감정이 없다는 뜻이다. 시안은 64pt 원, 안의 아이콘 32pt. (REC-11)
 private struct DashedCircle: View {
     @ScaledMetric private var size: CGFloat = 64
 

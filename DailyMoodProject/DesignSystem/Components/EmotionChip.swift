@@ -16,23 +16,28 @@ struct EmotionChip: View {
 
     var body: some View {
         Button(action: action) {
+            // 시안: 높이 36, 좌우 14, 글자와 개수 사이 6, 글자 15 medium, 개수 13.
             HStack(spacing: 6) {
                 if let emotion {
                     Text(emotion.emoji)
                 }
                 Text(title)
                 Text("\(count)")
-                    .foregroundStyle(isSelected ? AnyShapeStyle(.white.opacity(0.8)) : AnyShapeStyle(.secondary))
+                    .font(.footnote)
+                    .foregroundStyle(isSelected ? AnyShapeStyle(.white.opacity(0.75)) : AnyShapeStyle(.secondary))
             }
-            .font(.subheadline)
+            .font(.subheadline.weight(.medium))
             .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
             .padding(.horizontal, 14)
-            .frame(minHeight: 44)                       // 높이는 고정하지 않고 최소값만 둔다
+            .frame(minHeight: 36)                       // 높이는 고정하지 않고 최소값만 둔다
             .background(
                 isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(Color(.secondarySystemGroupedBackground)),
                 in: Capsule()
             )
-            .contentShape(Capsule())
+            // 눈에 보이는 높이는 36이지만, 누를 수 있는 영역은 위아래 4씩 넓혀 44를 맞춘다.
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+            .padding(.vertical, -4)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(title), \(count)개")
