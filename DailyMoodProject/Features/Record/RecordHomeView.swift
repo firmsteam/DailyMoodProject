@@ -6,25 +6,20 @@
 import SwiftUI
 import SwiftData
 
-/// 기록 탭(①②). 오늘 기록이 없으면 ②를 보여 준다. (COM-01)
-/// 오늘 기록이 있을 때(①)는 구현 전이라 시트와 push 연결만 확인할 수 있게 버튼을 둔다.
+/// 기록 탭(①②). 오늘 기록이 있으면 ①(RecordAfterView), 없으면 ②(RecordBeforeView)를 보여 준다. (COM-01)
 struct RecordHomeView: View {
     @Environment(AppRouter.self) private var router
     @Query(sort: \MoodEntry.dayKey, order: .reverse) private var entries: [MoodEntry]
 
     var body: some View {
         let today = DayKey.today()
+        let snapshots = entries.map(\.snapshot)
 
         Group {
-            if entries.contains(where: { $0.dayKey == today.rawValue }) {
-                List {
-                    Button("오늘의 감정 기록하기") {
-                        router.sheet = .editor(.new(prompt: nil))
-                    }
-                    NavigationLink("오늘 기록 보기", value: DayKey.today())
-                }
+            if let todayEntry = snapshots.first(where: { $0.day == today }) {
+                RecordAfterView(today: today, todayEntry: todayEntry, entries: snapshots)
             } else {
-                RecordBeforeView(today: today, entries: entries.map(\.snapshot))
+                RecordBeforeView(today: today, entries: snapshots)
             }
         }
         .navigationBarTitleDisplayMode(.inline)
