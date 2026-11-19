@@ -9,8 +9,7 @@ import SwiftData
 /// 달력 탭(④). 한 달을 격자로 보여 주고, 기록이 있는 날을 누르면 아래에 그날의 기록을 보여 준다.
 /// - CAL-01 제목, CAL-02 달 이동, CAL-04 요일 줄, CAL-05 날짜 칸
 /// - CAL-06 날짜 칸 누르기, CAL-07 선택한 날 영역, CAL-08 지난 기록
-/// - 선택한 날에 기록이 있으면 그 감정에 맞는 옷차림·활동 추천 카드를 보여 준다.
-/// - 제목(연도·월)을 누르면 팝오버에서 원하는 연도와 월로 바로 이동한다.
+/// - 제목의 연도를 누르면 팝오버에서 원하는 연도로 바로 이동한다.
 /// - 날짜 칸을 누르면 그 날을 선택하고, 기록이 없는 날은 선택한 날 영역에서 기록한다.
 /// - ADD-05 저장 알림, ADD-13 "나중에 기록" 표시
 struct CalendarView: View {
@@ -23,10 +22,8 @@ struct CalendarView: View {
     @State private var selected: DayKey?
     /// 지난 날 기록을 저장한 뒤 2초 동안 보여 주는 알림. (ADD-05)
     @State private var toastText: String?
-    /// 연도·월 고르기 팝오버.
-    @State private var showsMonthPicker = false
-    /// 지난 기록에 적용한 감정 필터. `nil`이면 전체.
-    @State private var emotionFilter: Emotion?
+    /// 연도 고르기 팝오버.
+    @State private var showsYearPicker = false
 
     /// 미리보기에서 "오늘"을 고정하는 용도. 실제 앱에서는 `nil`이라 매번 현재 날짜를 쓴다.
     private let fixedToday: DayKey?
@@ -87,54 +84,42 @@ struct CalendarView: View {
 
     // MARK: - 제목 (CAL-01)
 
-    /// 제목을 누르면 연도·월 고르기 팝오버가 열린다.
+    /// 연도를 누르면 연도 고르기 팝오버가 열린다. 월은 누를 수 없고, 달 이동은 툴바의 화살표로 한다.
     private func titleBlock(byDay: [DayKey: MoodEntry]) -> some View {
-        Button { showsMonthPicker = true } label: {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 4) {
-                    Text(verbatim: "\(monthStart.year)년")      // 연도에 쉼표(2,026)가 붙지 않게 한다.
-                    Image(systemName: "chevron.down").imageScale(.small)
-                }
-                .font(.headline)
-                .foregroundStyle(.tint)
-                Text("\(monthStart.month)월")
-                    .font(.largeTitle.bold())
-                    .foregroundStyle(.primary)
+        VStack(alignment: .leading, spacing: 0) {
+            Button { showsYearPicker = true } label: {
+                Text(verbatim: "\(monthStart.year)년")          // 연도에 쉼표(2,026)가 붙지 않게 한다.
+                    .font(.headline)
+                    .foregroundStyle(.tint)
+                    .frame(minHeight: 44, alignment: .leading)
+                    .contentShape(Rectangle())
             }
-            .frame(minHeight: 44, alignment: .leading)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .popover(isPresented: $showsYearPicker) { yearPicker(byDay: byDay) }
+            .accessibilityLabel("\(monthStart.year)년")
+            .accessibilityHint("눌러서 연도 이동")
+
+            Text("\(monthStart.month)월")
+                .font(.largeTitle.bold())
+                .foregroundStyle(.primary)
+                .accessibilityAddTraits(.isHeader)
         }
-        .buttonStyle(.plain)
         .padding(.top, 4)
         .padding(.bottom, 12)
-        .popover(isPresented: $showsMonthPicker) { monthPicker(byDay: byDay) }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(monthStart.formattedYearMonth)
-        .accessibilityHint("눌러서 연도와 월 이동")
-        .accessibilityAddTraits([.isHeader, .isButton])
     }
 
-    /// 연도와 월을 휠로 고른다. 고르는 즉시 달력이 그 달로 옮겨 가고, 이번 달 이후는 고를 수 없다.
-    private func monthPicker(byDay: [DayKey: MoodEntry]) -> some View {
+    /// 연도를 휠로 고른다. 고르는 즉시 달력이 그 해의 같은 달로 옮겨 가고, 이번 달 이후는 고를 수 없다.
+    private func yearPicker(byDay: [DayKey: MoodEntry]) -> some View {
         let years = Array(EntryValidator.earliestDay.year...today.year)
-        let months = Array(1...(monthStart.year == today.year ? today.month : 12))
 
-        return HStack(spacing: 0) {
-            Picker("연도", selection: Binding(
-                get: { monthStart.year },
-                set: { jump(toYear: $0, month: monthStart.month, byDay: byDay) }
-            )) {
-                ForEach(years, id: \.self) { Text(verbatim: "\($0)년").tag($0) }
-            }
-            Picker("월", selection: Binding(
-                get: { monthStart.month },
-                set: { jump(toYear: monthStart.year, month: $0, byDay: byDay) }
-            )) {
-                ForEach(months, id: \.self) { Text(verbatim: "\($0)월").tag($0) }
-            }
+        return Picker("연도", selection: Binding(
+            get: { monthStart.year },
+            set: { jump(toYear: $0, month: monthStart.month, byDay: byDay) }
+        )) {
+            ForEach(years, id: \.self) { Text(verbatim: "\($0)년").tag($0) }
         }
         .pickerStyle(.wheel)
-        .frame(width: 260, height: 180)
+        .frame(width: 160, height: 180)
         .padding(.horizontal)
         .presentationCompactAdaptation(.popover)               // 아이폰에서도 시트가 아니라 팝오버로 보여 준다.
     }
@@ -214,9 +199,6 @@ struct CalendarView: View {
                         )
                     }
                     .buttonStyle(.plain)
-
-                    SuggestionCard(emotion: entry.emotion)       // 기록한 감정에 맞는 옷차림·활동 추천
-                        .padding(.top, 16)
                 } else {
                     emptyDay(selected)
                 }
@@ -281,9 +263,6 @@ struct CalendarView: View {
             .filter { $0.day < day }
             .sorted { $0.day > $1.day }
             .map(\.snapshot)
-        // 선택한 감정의 기록이 하나도 없으면 필터를 적용하지 않는다.
-        let activeFilter = previous.contains { $0.emotion == emotionFilter } ? emotionFilter : nil
-        let shown = activeFilter.map { filter in previous.filter { $0.emotion == filter } } ?? previous
 
         if !previous.isEmpty {
             Text("지난 기록")
@@ -294,10 +273,8 @@ struct CalendarView: View {
                 .padding(.horizontal, 4)
                 .accessibilityAddTraits(.isHeader)
 
-            emotionFilterChips(for: previous, active: activeFilter)
-
             LazyVStack(spacing: 0) {
-                ForEach(shown) { entry in
+                ForEach(previous) { entry in
                     NavigationLink(value: entry.day) {
                         CalendarRecordRow(entry: entry, caption: previousCaption(for: entry))
                     }
@@ -305,27 +282,6 @@ struct CalendarView: View {
                 }
             }
         }
-    }
-
-    /// 지난 기록을 감정별로 거르는 칩 줄. 기록이 있는 감정만 보여 준다.
-    private func emotionFilterChips(for previous: [EntrySnapshot], active: Emotion?) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                EmotionChip(emotion: nil, count: previous.count, isSelected: active == nil) {
-                    emotionFilter = nil
-                }
-                ForEach(Emotion.allCases) { emotion in
-                    let count = previous.filter { $0.emotion == emotion }.count
-                    if count > 0 {
-                        EmotionChip(emotion: emotion, count: count, isSelected: active == emotion) {
-                            emotionFilter = emotion
-                        }
-                    }
-                }
-            }
-            .padding(.horizontal, 4)
-        }
-        .padding(.bottom, 8)
     }
 
     // MARK: - 저장 알림 (ADD-05)
@@ -381,7 +337,7 @@ struct CalendarView: View {
         selected = defaultSelection(in: moved, byDay: byDay)
     }
 
-    /// 연도와 월을 골라 바로 이동한다. 이번 달보다 뒤로는 갈 수 없어서, 넘어서면 이번 달로 맞춘다.
+    /// 연도(와 월)를 골라 바로 이동한다. 이번 달보다 뒤로는 갈 수 없어서, 넘어서면 이번 달로 맞춘다.
     private func jump(toYear year: Int, month: Int, byDay: [DayKey: MoodEntry]) {
         let requested = DayKey(rawValue: year * 10_000 + month * 100 + 1)
         let target = min(requested, today.firstOfMonth)
@@ -419,7 +375,7 @@ struct CalendarView: View {
 // MARK: - 날짜 칸
 
 /// 달력 한 칸. 날짜 숫자와 이모지를 보여 준다.
-/// 오늘은 강조색 원, 기록이 없는 지난 날은 점(·), 미래 날짜는 흐리게 보여 준다. (CAL-05, R-14)
+/// 오늘은 강조색 원, 선택한 지난 날은 흰 배경에 강조색 테두리 원과 강조색 숫자, 기록이 없는 지난 날은 점(·), 미래 날짜는 흐리게 보여 준다. (CAL-05, R-14)
 private struct DayCell: View {
     let day: DayKey
     let emotion: Emotion?
@@ -431,26 +387,28 @@ private struct DayCell: View {
     @ScaledMetric private var circleSize: CGFloat = 28
     @ScaledMetric private var markerHeight: CGFloat = 24
     @ScaledMetric private var minHeight: CGFloat = 48
+    @ScaledMetric private var emptyDotSize: CGFloat = 6
 
     var body: some View {
         VStack(spacing: 2) {
             Text("\(day.day)")
-                .font(.callout.weight(isToday ? .bold : .regular))
+                .font(.callout.weight(isToday || isSelected ? .bold : .regular))
                 .foregroundStyle(numberColor)
                 .frame(width: circleSize, height: circleSize)
                 .background {
-                    if isToday { Circle().fill(.tint) }
+                    if isToday {
+                        Circle().fill(.tint)
+                    } else if isSelected {
+                        // 선택한 지난 날은 흰 배경에 오늘과 같은 강조색 테두리 동그라미로 보여 준다.
+                        Circle()
+                            .fill(.white)
+                            .overlay { Circle().strokeBorder(.tint, lineWidth: 2) }
+                    }
                 }
             marker.frame(height: markerHeight)       // 이모지가 없는 칸도 같은 높이를 써서 숫자 줄을 맞춘다.
         }
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .top)
-        .background {
-            if isSelected && !isToday {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(.tint.opacity(0.12))
-            }
-        }
         .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText)
@@ -465,13 +423,16 @@ private struct DayCell: View {
         } else if isFuture {
             Color.clear.frame(height: 1)
         } else {
-            Text("·").font(.callout).foregroundStyle(.secondary)
+            Circle()                                    // 기록이 없는 지난 날의 점. 글자(·)보다 굵게 보이도록 도형으로 그린다.
+                .fill(.secondary)
+                .frame(width: emptyDotSize, height: emptyDotSize)
         }
     }
 
-    private var numberColor: Color {
-        if isToday { return .white }
-        return isFuture ? Color(.tertiaryLabel) : .primary
+    private var numberColor: AnyShapeStyle {
+        if isToday { return AnyShapeStyle(.white) }
+        if isSelected { return AnyShapeStyle(.tint) }        // 오늘 동그라미와 같은 강조색
+        return isFuture ? AnyShapeStyle(Color(.tertiaryLabel)) : AnyShapeStyle(.primary)
     }
 
     private var accessibilityText: String {
