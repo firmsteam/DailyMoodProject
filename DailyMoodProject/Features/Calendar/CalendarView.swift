@@ -200,7 +200,7 @@ struct CalendarView: View {
                     }
                     .buttonStyle(.plain)
                 } else {
-                    emptyDay(selected)
+                    emptyDay
                 }
                 previousRecords(before: selected, byDay: byDay)
             }
@@ -234,26 +234,15 @@ struct CalendarView: View {
         .padding(.horizontal, 4)
     }
 
-    /// 기록이 없는 날. 오늘이면 기록 시트를 여는 버튼을 보여 준다. 지난 날은 새로 기록할 수 없다.
-    private func emptyDay(_ day: DayKey) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("아직 기록이 없어요")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-            if day == today {
-                Button("오늘 기록하기", systemImage: "plus") {
-                    router.sheet = .editor(.new(prompt: nil))
-                }
-                .buttonStyle(.glassProminent)           // 화면에서 가장 중요한 동작 하나
-                .controlSize(.large)
-                .tint(.indigo)
-                .frame(maxWidth: .infinity)
-            }
-        }
-        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
-        .padding(.vertical, 10)
-        .padding(.horizontal, 4)
-        .overlay(alignment: .bottom) { Divider() }
+    /// 기록이 없는 날. 달력에서는 새로 기록할 수 없어서 안내 문구만 보여 준다.
+    private var emptyDay: some View {
+        Text("아직 기록이 없어요")
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+            .padding(.vertical, 10)
+            .padding(.horizontal, 4)
+            .overlay(alignment: .bottom) { Divider() }
     }
 
     /// 선택한 날 이전의 기록을 최근 순으로 보여 준다. 없으면 제목도 숨긴다.
