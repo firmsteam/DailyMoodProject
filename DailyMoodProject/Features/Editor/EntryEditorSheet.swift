@@ -19,7 +19,7 @@ struct EntryEditorSheet: View {
         self.mode = mode
         switch mode {
         case .new: openedDay = .today()
-        case .edit(let day): openedDay = day
+        case .newOn(let day), .edit(let day): openedDay = day
         }
         let key = openedDay.rawValue
         _matches = Query(filter: #Predicate<MoodEntry> { $0.dayKey == key })
@@ -29,6 +29,8 @@ struct EntryEditorSheet: View {
         switch mode {
         case .new(let prompt):
             EntryEditorForm(initial: EntryDraft(newOn: openedDay), prompt: prompt, isEditing: false)
+        case .newOn:
+            EntryEditorForm(initial: EntryDraft(newOn: openedDay), prompt: nil, isEditing: false)
         case .edit:
             if let entry = matches.first {
                 EntryEditorForm(initial: EntryDraft(editing: entry.snapshot), prompt: nil, isEditing: true)

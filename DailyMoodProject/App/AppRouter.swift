@@ -36,12 +36,15 @@ struct SavedEntry: Equatable {
 enum EditorMode: Hashable, Identifiable {
     /// 새 기록. 질문 카드로 들어오면 `prompt`가 있다. (③-2)
     case new(prompt: String?)
+    /// 달력에서 고른 날에 새 기록. 기록이 없는 날에만 쓴다.
+    case newOn(DayKey)
     /// 기존 기록 수정. (③-1)
     case edit(DayKey)
 
     var id: String {
         switch self {
         case .new(let prompt): "new-\(prompt ?? "")"
+        case .newOn(let day): "new-on-\(day.rawValue)"
         case .edit(let day): "edit-\(day.rawValue)"
         }
     }

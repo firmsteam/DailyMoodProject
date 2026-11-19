@@ -63,9 +63,8 @@ struct CalendarView: View {
                     .disabled(!canMoveToNextMonth)           // 이번 달에서는 비활성 (CAL-02)
             }
             ToolbarItem(placement: .primaryAction) {
-                // 모양만 보여 주는 ＋. 버튼이 아니라서 눌러도 아무 반응이 없다.
-                Image(systemName: "plus")
-                    .accessibilityHidden(true)
+                // 선택한 날(없으면 오늘)에 기록하는 시트를 연다. 이미 기록이 있으면 수정 시트가 열린다.
+                Button("기록하기", systemImage: "plus") { openEditor(byDay: byDay) }
             }
         }
         .overlay(alignment: .bottom) { toast }
@@ -309,6 +308,13 @@ struct CalendarView: View {
             guard !Task.isCancelled, toastText == message else { return }
             withAnimation { toastText = nil }
         }
+    }
+
+    /// ＋ 버튼 동작. 선택한 날에 기록이 있으면 수정, 없으면 그 날에 새로 기록한다.
+    /// 선택한 날이 없거나 기록할 수 없는 날이면 오늘을 기준으로 한다.
+    private func openEditor(byDay: [DayKey: MoodEntry]) {
+        let day = selected.flatMap { EntryValidator.isRecordable($0, today: today) ? $0 : nil } ?? today
+        router.sheet = .editor(byDay[day] != nil ? .edit(day) : .newOn(day))
     }
 
     private var canMoveToPreviousMonth: Bool {
