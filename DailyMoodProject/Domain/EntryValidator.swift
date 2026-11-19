@@ -22,6 +22,11 @@ enum EntryValidator {
         recordableRange(today: today).contains(day)
     }
 
+    /// 이미 있는 기록을 수정할 수 있는 날인지. 오늘 기록만 수정할 수 있고, 지난 날 기록은 수정할 수 없다.
+    static func isEditable(_ day: DayKey, today: DayKey) -> Bool {
+        day == today
+    }
+
     /// 앞뒤 공백을 지우고 최대 글자 수까지만 남긴다.
     static func normalized(_ text: String) -> String {
         String(text.trimmingCharacters(in: .whitespacesAndNewlines).prefix(maxLength))

@@ -63,8 +63,9 @@ struct CalendarView: View {
                     .disabled(!canMoveToNextMonth)           // 이번 달에서는 비활성 (CAL-02)
             }
             ToolbarItem(placement: .primaryAction) {
-                // 선택한 날(없으면 오늘)에 기록하는 시트를 연다. 이미 기록이 있으면 수정 시트가 열린다.
-                Button("기록하기", systemImage: "plus") { openEditor(byDay: byDay) }
+                // 오늘을 선택했을 때만 동작한다. 기록이 없으면 새로 기록하고, 있으면 수정한다. 지난 날은 모두 비활성이다.
+                Button(addButtonTitle(byDay: byDay), systemImage: "plus") { openEditor(byDay: byDay) }
+                    .disabled(!canOpenEditor(byDay: byDay))
             }
         }
         .overlay(alignment: .bottom) { toast }
@@ -310,10 +311,19 @@ struct CalendarView: View {
         }
     }
 
-    /// ＋ 버튼 동작. 선택한 날에 기록이 있으면 수정, 없으면 그 날에 새로 기록한다.
-    /// 선택한 날이 없거나 기록할 수 없는 날이면 오늘을 기준으로 한다.
+    /// ＋ 버튼으로 시트를 열 수 있는지. 선택한 날이 오늘일 때만 열 수 있다. 지난 날은 기록이 있든 없든 열 수 없다.
+    private func canOpenEditor(byDay: [DayKey: MoodEntry]) -> Bool {
+        selected == today
+    }
+
+    private func addButtonTitle(byDay: [DayKey: MoodEntry]) -> String {
+        guard let selected, byDay[selected] != nil else { return "기록하기" }
+        return "기록 수정"
+    }
+
+    /// ＋ 버튼 동작. 오늘 기록이 없으면 새로 기록하고, 있으면 수정한다.
     private func openEditor(byDay: [DayKey: MoodEntry]) {
-        let day = selected.flatMap { EntryValidator.isRecordable($0, today: today) ? $0 : nil } ?? today
+        guard canOpenEditor(byDay: byDay), let day = selected else { return }
         router.sheet = .editor(byDay[day] != nil ? .edit(day) : .newOn(day))
     }
 

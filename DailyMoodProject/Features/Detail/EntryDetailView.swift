@@ -35,6 +35,9 @@ struct EntryDetailView: View {
     /// 새 기록은 오늘만 남길 수 있어서, 삭제한 기록은 오늘 것일 때만 다시 기록할 수 있다.
     private var canRerecord: Bool { day == today }
 
+    /// 지난 날 기록은 수정할 수 없다.
+    private var canEdit: Bool { EntryValidator.isEditable(day, today: today) }
+
     /// 삭제 뒤 다시 기록할 수 있다는 안내에 쓰는 날. (DTL-04, DTL-07)
     private var rerecordDayText: String { "오늘" }
 
@@ -52,10 +55,12 @@ struct EntryDetailView: View {
         .toolbar {
             if entry != nil {
                 ToolbarItemGroup(placement: .bottomBar) {
-                    Button("수정", systemImage: "pencil") {
-                        router.sheet = .editor(.edit(day))       // DTL-05
+                    if canEdit {
+                        Button("수정", systemImage: "pencil") {
+                            router.sheet = .editor(.edit(day))       // DTL-05
+                        }
+                        .tint(.indigo)
                     }
-                    .tint(.indigo)
                     deleteButton
                 }
             }
@@ -131,7 +136,7 @@ struct EntryDetailView: View {
     private var footerText: String {
         canRerecord
             ? "하루에 한 번만 기록할 수 있어요. 수정은 언제든 가능하고, 삭제하면 \(rerecordDayText) 다시 기록할 수 있어요."
-            : "하루에 한 번만 기록할 수 있어요. 수정은 언제든 가능해요."
+            : "하루에 한 번만 기록할 수 있어요. 지난 날의 기록은 수정할 수 없어요."
     }
 
     // MARK: - 삭제 (DTL-06, DTL-07)
