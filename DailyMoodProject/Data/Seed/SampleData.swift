@@ -75,23 +75,6 @@ enum SampleData {
         return EntrySnapshot(day: day, emotion: row.emotion, text: row.text, createdAt: createdAt, modifiedAt: nil)
     }
 
-    /// `today`까지 최근 30일을 하루 한 건씩 채운 테스트 기록. 문구와 감정은 `monthRows`를 순서대로 돌려 쓴다.
-    static func recentMonth(endingAt today: DayKey) -> [EntrySnapshot] {
-        monthRows.indices.map { index in
-            let row = monthRows[index]
-            let day = today.adding(days: index - (monthRows.count - 1))
-            let createdAt = Calendar.app.date(bySettingHour: 21, minute: 0, second: 0, of: day.date()) ?? day.date()
-            return EntrySnapshot(day: day, emotion: row.emotion, text: row.text, createdAt: createdAt, modifiedAt: nil)
-        }
-    }
-
-    /// 저장소가 비어 있을 때만 오늘까지의 한 달치 테스트 기록을 넣는다. 이미 기록이 있으면 아무것도 하지 않는다.
-    @MainActor
-    static func seedRecentMonthIfEmpty(into context: ModelContext) throws {
-        guard try context.fetchCount(FetchDescriptor<MoodEntry>()) == 0 else { return }
-        try insert(into: context, entries: recentMonth(endingAt: .today()))
-    }
-
     /// 샘플을 저장소에 넣는다. 같은 날 기록이 이미 있으면 건너뛰어 "하루 한 건"을 지킨다.
     /// 기본값은 시안과 같은 12건이고, `monthEntries`를 넘기면 한 달치가 들어간다.
     @MainActor
